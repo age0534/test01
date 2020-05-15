@@ -1,5 +1,10 @@
 Option Explict
 
+'参考にしたサイト
+'https://www.fastclassinfo.com/entry/vba_pdf_text_extraction
+'https://www.sejuku.net/blog/34439
+
+
 Sub filecheck()
 	Dim filename, path, xmlpath, kword As String
 	Dim i, cmax As Long		'cmaxはcellのmax?
@@ -117,7 +122,7 @@ Sub filecheck()
 	For Each objxml In XMLDocument.getElementsByTagName("P")
 		If InStr(objxml.Text, kword) > 0 Then
 			pos = InstrRev(xmlpath, "\")		'文字列の最後から数えて\が最初にある位置
-			ws1.Range("A" & cmax + 1).Value = Mid(xmlpath, pos + 1)
+			ws1.Range("A" & cmax + 1).Value = Mid(xmlpath, pos + 1)		'文字列をpos + 1の位置から書き出す
 			Exit For
 		End If
 	Next
