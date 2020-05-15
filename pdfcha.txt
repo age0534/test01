@@ -1,0 +1,125 @@
+Option Explict
+
+Sub filecheck()
+	Dim filename, path, xmlpath, kword As String
+	Dim i, cmax As Long		'cmaxはcellのmax?
+	Dim ws1, As Worksheet
+	
+	
+	Set ws1 = Workseets("データ一覧")
+	
+	Dim fs As FileSystemObject
+	Dim basefolder As Scripting.Folder		'フォルダ型
+	Dim filepath As String
+	
+	
+	Dim mysubfiles As Scripting.Files
+	Dim mysubfile As Scripting.File
+	
+	
+	cmax = ws1.Range("A65536").End(xlUp).Row	'セルの行数
+	Set fs = New Scripting.FileSystemObject
+	
+	filepath = ThisWorkbook.path & "\Analysis"
+	
+	Set basefolder = fs.GetFolder(filepath)		'フォルダを取得
+	Set mysubfiles = basefolder.Files		'フォルダ内の全てのファイル
+	
+	kword = InputBox("検索ワードを入力してください")
+	If StrPtr(kword) = 0 Then Exit Sub
+	
+	ws1.Range("A1").Value = "検索結果"
+	
+	For Each mysubfile In mysubfiles		'全部のファイルが終わるまで繰り返し
+		Debug.Print mysubfile.Name
+		Debug.Print fs.GetExtensionName(mysubfile)		'フォルダの拡張子確認
+		Debug.Print fs.GetParentFolderName(mysubfile)		’指定したファイルの親ファイル確認
+		
+		If fs.GetExtensionName(path := mysubfile) = "pdf" Then		'拡張子がpdfなら
+		
+		
+			path = fs.GetParentFolderName(path := mysubfile)		親フォルダを取得
+			xmlpath = xmlurl(mysubfile.Name, path)
+			Call xml_parse(xmlpath, kword)
+		End IF
+	Next
+	
+	Enf Sub
+	
+	'コード2 | PDF毎にxml化する
+	Function xmlurl(filename, path)
+	
+		Dim objAcroApp As New Acrobat.AcroApp
+		Dim objAcroAVDoc As New Acrobat.AcroAVDoc
+		Dim objAcroPDDoc As Acrobat.AcroPDDoc
+		Dim id As Long
+		Dim js As Object
+		Dim fullpath, savename As String
+		
+		fullpath = path & "\" & filename
+		Debug.Print fullpath
+		id = objAcroApp.Show	'Acrobatアプリケーションを起動
+		id = objAcroAVDoc.Open(fullpath, "")
+		Set objAcroPDDoc = objAcroAVDoc.GetPDDoc()
+		'JavaScriptオブジェクトを作成する。
+		Set js = objAcroPDDoc.GetJSObject
+		savename = Replace(fullpath, ".pdf", "")		'pdfを空白に変える
+		js.SaveAs savename & ".xml", "com.adobe.acrobat.xml-1-00"		'savenameに.xmlを加えてpdfをxmlに変更
+		
+		'PDFファイルを変更なしで閉じる
+		id = objAcroAVDoc.Close(1)
+		'Acrobatアプリケーションを終了する
+		id = objAcroApp.Hide
+		id = objAcroApp.Exit
+		'OLEを行うとAcrobatが不安定になるので、
+		'オブジェクトを強制開放する
+		Set js = Nothing
+		Set objAcroAVDoc = Nothing
+		Set objAcroApp = Nothing
+		
+		xmlurl = savename & ".xml"
+		
+	End Function
+	
+	'コード2 | フォルダ内のpdfファイルだけを抽出
+	Sub xml_parse(ByVal xmlpath As String, ByVal kword As String)
+	'Microsoft XML v6.0を参照設定
+		Dim XMLDocument As MSXML2.DOMDocument60
+		Dim ws1 As Worksheet
+		
+		Set ws1 = Worksheets("データ一覧")
+		
+		'MSXMLオブジェクトを生成し、xmlファイルをロード
+		Set XMLDocument = New MSXML2.DOMDocument60
+		
+		'async = False → 読み込み終了後､次の処理をする（同期処理）
+		'async = true →だと､読み込みが終わらなくても､次のステップへ（非同期処理）
+		'VBAは非同期処理に対応していないので、async = Falseとする
+		XMLDocument.async = False
+		
+		Dim strMsg As String
+		Dim cmax As Long
+		
+		cmax = ws1.Range("A1048576").End(xlUp).Row		'入力されている最終行の値
+		XMLDocument.Load(xmlpath)
+		
+		If(XMLDocument.parseError.ErrorCode <> 0) Then	'ロード失敗
+			
+			strMsg = XMLDocument.parseError.reason		'エラー内容を出力
+			
+			MsgBox "ロードに失敗" & vbCrLf & vbCrLf & strMsg, vbCritical
+			
+		End If
+	
+	Dim objxml As Object
+	Dim pos As Long
+	
+	For Each objxml In XMLDocument.getElementsByTagName("P")
+		If InStr(objxml.Text, kword) > 0 Then
+			pos = InstrRev(xmlpath, "\")		'文字列の最後から数えて\が最初にある位置
+			ws1.Range("A" & cmax + 1).Value = Mid(xmlpath, pos + 1)
+			Exit For
+		End If
+	Next
+
+	End Sub
